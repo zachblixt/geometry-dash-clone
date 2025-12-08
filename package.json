@@ -1,0 +1,27 @@
+{
+  "name": "geometry-dash-clone",
+  "version": "1.0.0",
+  "description": "A clone of Geometry Dash using THREE.js for interactive gameplay.",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "live-server src",
+    "build": "webpack --mode production"
+  },
+  "keywords": [
+    "geometry-dash",
+    "three.js",
+    "game",
+    "interactive",
+    "canvas"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "three": "^0.130.0"
+  },
+  "devDependencies": {
+    "live-server": "^1.2.1",
+    "webpack": "^5.0.0",
+    "webpack-cli": "^4.0.0"
+  }
+}

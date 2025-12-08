@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sky Runner - CS559 Project</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Group ID Display (REQUIRED - Update with your actual group ID) -->
+    <div id="group-id">Group ID: 0000</div>
+
+    <!-- Score Display -->
+    <div id="score-display">Score: 0</div>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- UI Controls -->
+        <div id="ui">
+            <button id="toggleMode">Switch Mode</button>
+        </div>
+
+        <!-- Mode Indicator -->
+        <div id="mode-indicator">Mode: Prototype</div>
+
+        <!-- Mobile Controls -->
+        <div id="mobile-controls">
+            <div class="control-button" id="jump-button">🚀</div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="game-over">
+            <h2>Game Over!</h2>
+            <p>Final Score: 0</p>
+            <button id="restart-button">Restart</button>
+        </div>
+    </div>
+
+    <!-- Load THREE.js from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <!-- Load main game script as module -->
+    <script type="module" src="main.js"></script>
+</body>
+</html>
