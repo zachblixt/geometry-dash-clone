@@ -1,147 +1,121 @@
+import * as THREE from 'three';
 import PrototypeMode from './modes/prototype.js';
 import FullMode from './modes/full.js';
+import InputHandler from './utils/inputHandler.js';
 
-// Game setup
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer({
-    canvas: document.getElementById('gameCanvas'),
-    antialias: true
-});
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
+class Game {
+    constructor() {
+        this.scene = null;
+        this.camera = null;
+        this.renderer = null;
+        this.currentMode = null;
+        this.inputHandler = null;
+        this.isRunning = false;
+    }
 
-let currentMode = 'prototype';
-let gameMode = null;
-let keys = {};
-let mobileJump = false;
+    init(modeType) {
+        // Setup Three.js
+        this.scene = new THREE.Scene();
+        this.camera = new THREE.PerspectiveCamera(
+            75,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            1000
+        );
+        this.renderer = new THREE.WebGLRenderer({ antialias: true });
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
 
-// Initialize input handlers
-function initInputHandlers() {
-    // Keyboard input
-    window.addEventListener('keydown', (e) => {
-        keys[e.code] = true;
-        // Prevent default for space and arrow keys
-        if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
-            e.preventDefault();
+        const gameCanvas = document.getElementById('game-canvas');
+        gameCanvas.innerHTML = '';
+        gameCanvas.appendChild(this.renderer.domElement);
+
+        // Setup input handler
+        this.inputHandler = new InputHandler();
+
+        // Initialize selected mode
+        if (modeType === 'prototype') {
+            this.currentMode = new PrototypeMode(this.scene, this.camera, this.renderer);
+        } else {
+            this.currentMode = new FullMode(this.scene, this.camera, this.renderer);
         }
-    });
 
-    window.addEventListener('keyup', (e) => {
-        keys[e.code] = false;
-    });
+        this.currentMode.init();
 
-    // Mobile jump button
-    const jumpButton = document.getElementById('jump-button');
-    if (jumpButton) {
-        jumpButton.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            mobileJump = true;
-        });
+        // Setup window resize
+        window.addEventListener('resize', () => this.onWindowResize());
 
-        jumpButton.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            mobileJump = false;
-        });
+        // Show game container
+        document.getElementById('menu').style.display = 'none';
+        document.getElementById('game-container').style.display = 'block';
+        document.getElementById('game-over').style.display = 'none';
 
-        jumpButton.addEventListener('mousedown', (e) => {
-            e.preventDefault();
-            mobileJump = true;
-        });
-
-        jumpButton.addEventListener('mouseup', (e) => {
-            e.preventDefault();
-            mobileJump = false;
-        });
+        // Start game loop
+        this.isRunning = true;
+        this.animate();
     }
 
-    // Mode toggle button
-    const toggleButton = document.getElementById('toggleMode');
-    if (toggleButton) {
-        toggleButton.addEventListener('click', () => {
-            const newMode = currentMode === 'prototype' ? 'full' : 'prototype';
-            switchMode(newMode);
-        });
+    animate() {
+        if (!this.isRunning) return;
+
+        requestAnimationFrame(() => this.animate());
+
+        // Update game mode
+        if (this.currentMode) {
+            this.currentMode.handleInput(
+                this.inputHandler.keys,
+                this.inputHandler.mobileJump
+            );
+            this.inputHandler.mobileJump = false; // Reset mobile jump
+
+            this.currentMode.update();
+        }
+
+        // Render
+        this.renderer.render(this.scene, this.camera);
     }
 
-    // Restart button
-    const restartButton = document.getElementById('restart-button');
-    if (restartButton) {
-        restartButton.addEventListener('click', () => {
-            if (gameMode) {
-                gameMode.restart();
-            }
-        });
+    onWindowResize() {
+        this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    restart() {
+        if (this.currentMode) {
+            this.currentMode.restart();
+        }
+    }
+
+    returnToMenu() {
+        this.isRunning = false;
+
+        if (this.currentMode) {
+            this.currentMode.cleanup();
+        }
+
+        document.getElementById('game-container').style.display = 'none';
+        document.getElementById('game-over').style.display = 'none';
+        document.getElementById('menu').style.display = 'block';
     }
 }
 
-// Switch between game modes
-function switchMode(mode) {
-    // Cleanup current mode
-    if (gameMode) {
-        gameMode.cleanup();
-    }
+// Initialize game
+const game = new Game();
 
-    // Clear the scene (remove all children except lights that will be re-added)
-    while(scene.children.length > 0) {
-        scene.remove(scene.children[0]);
-    }
-
-    // Reset camera
-    camera.position.set(0, 0, 0);
-    camera.rotation.set(0, 0, 0);
-
-    // Create new game mode
-    currentMode = mode;
-
-    if (mode === 'prototype') {
-        gameMode = new PrototypeMode(scene, camera, renderer);
-    } else if (mode === 'full') {
-        gameMode = new FullMode(scene, camera, renderer);
-    }
-
-    gameMode.init();
-
-    // Update mode indicator
-    const modeIndicator = document.getElementById('mode-indicator');
-    if (modeIndicator) {
-        modeIndicator.textContent = `Mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)}`;
-    }
-
-    // Reset mobile jump
-    mobileJump = false;
-}
-
-// Handle window resize
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
+// Menu buttons
+document.getElementById('prototype-btn').addEventListener('click', () => {
+    game.init('prototype');
 });
 
-// Animation loop
-function animate() {
-    requestAnimationFrame(animate);
+document.getElementById('full-btn').addEventListener('click', () => {
+    game.init('full');
+});
 
-    if (gameMode) {
-        // Pass input to game mode
-        gameMode.handleInput(keys, mobileJump);
+// Game over buttons
+document.getElementById('restart-btn').addEventListener('click', () => {
+    game.restart();
+});
 
-        // Update game state
-        gameMode.update();
-
-        // Reset mobile jump after frame for single-press actions
-        // Note: Keyboard keys remain in 'keys' object until keyup
-        mobileJump = false;
-    }
-
-    renderer.render(scene, camera);
-}
-
-// Initialize everything when page loads
-window.addEventListener('DOMContentLoaded', () => {
-    initInputHandlers();
-    switchMode(currentMode);
-    animate();
+document.getElementById('menu-btn').addEventListener('click', () => {
+    game.returnToMenu();
 });

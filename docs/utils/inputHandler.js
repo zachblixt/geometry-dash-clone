@@ -1,43 +1,29 @@
-const InputHandler = {
-    keys: {},
-    touchStart: null,
-    touchEnd: null,
+export default class InputHandler {
+    constructor() {
+        this.keys = {};
+        this.mobileJump = false;
 
-    init: function() {
-        window.addEventListener('keydown', this.onKeyDown.bind(this));
-        window.addEventListener('keyup', this.onKeyUp.bind(this));
-        window.addEventListener('touchstart', this.onTouchStart.bind(this));
-        window.addEventListener('touchend', this.onTouchEnd.bind(this));
-    },
+        // Keyboard events
+        window.addEventListener('keydown', (e) => {
+            this.keys[e.code] = true;
+        });
 
-    onKeyDown: function(event) {
-        this.keys[event.code] = true;
-    },
+        window.addEventListener('keyup', (e) => {
+            this.keys[e.code] = false;
+        });
 
-    onKeyUp: function(event) {
-        this.keys[event.code] = false;
-    },
+        // Mobile button
+        const mobileBtn = document.getElementById('mobile-jump');
+        if (mobileBtn) {
+            mobileBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                this.mobileJump = true;
+            });
 
-    onTouchStart: function(event) {
-        this.touchStart = event.touches[0];
-    },
-
-    onTouchEnd: function(event) {
-        this.touchEnd = event.changedTouches[0];
-    },
-
-    isKeyPressed: function(key) {
-        return this.keys[key] || false;
-    },
-
-    getTouchDirection: function() {
-        if (this.touchStart && this.touchEnd) {
-            const dx = this.touchEnd.clientX - this.touchStart.clientX;
-            const dy = this.touchEnd.clientY - this.touchStart.clientY;
-            return { dx, dy };
+            mobileBtn.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                this.mobileJump = true;
+            });
         }
-        return null;
     }
-};
-
-export default InputHandler;
+}
