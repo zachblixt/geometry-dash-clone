@@ -131,10 +131,9 @@ function animate() {
         // Update game state
         gameMode.update();
 
-        // Reset mobile jump after frame (only trigger once per press)
-        if (mobileJump) {
-            mobileJump = false;
-        }
+        // Reset mobile jump after frame for single-press actions
+        // Note: Keyboard keys remain in 'keys' object until keyup
+        mobileJump = false;
     }
 
     renderer.render(scene, camera);

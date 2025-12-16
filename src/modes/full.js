@@ -1,4 +1,4 @@
-// Full mode - uses textures and allows loaded objects
+// Full mode - Epic Geometry Dash with textures and enhanced visuals
 export default class FullMode {
     constructor(scene, camera, renderer) {
         this.scene = scene;
@@ -8,312 +8,814 @@ export default class FullMode {
         // Game state
         this.player = null;
         this.ground = [];
-        this.obstacles = [];
-        this.decorations = [];
-        this.gameSpeed = 0.08;
+        this.platforms = [];
+        this.spikes = [];
+        this.barriers = []; // Plane mode obstacles
+        this.particles = [];
+        this.trails = [];
+        this.gameSpeed = 0.12;
         this.score = 0;
         this.isGameOver = false;
         this.verticalVelocity = 0;
-        this.gravity = 0.008;
-        this.thrust = 0.015;
-        this.maxVelocity = 0.3;
+        this.gravity = 0.015;
+        this.jumpVelocity = 0.45;
+        this.maxVelocity = 0.8;
         this.groundY = -2;
-        this.ceilingY = 3;
+        this.isOnGround = false;
+        this.playerRotation = 0;
 
-        // Textures
+        // Visual effects
+        this.backgroundCubes = [];
+        this.pulseTime = 0;
         this.textures = {};
+
+        // Game mode switching
+        this.gameMode = 'cube'; // 'cube' or 'plane'
+        this.portals = [];
+        this.nextPortalScore = 100;
+
+        // Thruster mechanics
+        this.thrusterForce = 0.02;
+        this.isThrusterActive = false;
     }
 
     init() {
-        // Set up scene background
-        this.scene.background = new THREE.Color(0x87ceeb);
+        // Epic dark background
+        this.scene.background = new THREE.Color(0x050510);
 
-        // Add fog for depth
-        this.scene.fog = new THREE.Fog(0x87ceeb, 10, 50);
+        // Enhanced fog
+        this.scene.fog = new THREE.Fog(0x050510, 5, 35);
 
         // Position camera
-        this.camera.position.set(0, 0, 8);
+        this.camera.position.set(0, 1, 12);
         this.camera.lookAt(0, 0, 0);
 
-        // Add lighting
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        // Enhanced lighting setup
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
         this.scene.add(ambientLight);
 
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        directionalLight.position.set(5, 10, 5);
-        directionalLight.castShadow = true;
-        this.scene.add(directionalLight);
+        const frontLight = new THREE.DirectionalLight(0x00ffff, 1.0);
+        frontLight.position.set(0, 5, 10);
+        this.scene.add(frontLight);
+
+        const backLight = new THREE.DirectionalLight(0xff00ff, 0.6);
+        backLight.position.set(0, -5, -5);
+        this.scene.add(backLight);
+
+        const topLight = new THREE.DirectionalLight(0xffff00, 0.4);
+        topLight.position.set(0, 10, 0);
+        this.scene.add(topLight);
 
         // Load textures
         this.loadTextures();
 
-        // Create player with texture
+        // Create player
         this.createPlayer();
 
-        // Create ground with texture
+        // Create ground
         this.createGround();
 
-        // Create obstacles with textures
-        this.createObstacles();
+        // Create level
+        this.createLevel();
 
-        // Create background decorations
-        this.createDecorations();
+        // Create background elements
+        this.createBackground();
 
         // Update score display
         this.updateScore(0);
     }
 
     loadTextures() {
-        // Create procedural textures using canvas
-        // Player texture (gradient)
+        // Player gradient texture
         const playerCanvas = document.createElement('canvas');
-        playerCanvas.width = 64;
-        playerCanvas.height = 64;
+        playerCanvas.width = 128;
+        playerCanvas.height = 128;
         const playerCtx = playerCanvas.getContext('2d');
-        const playerGradient = playerCtx.createLinearGradient(0, 0, 64, 64);
-        playerGradient.addColorStop(0, '#00ffaa');
-        playerGradient.addColorStop(1, '#00aa88');
+        const playerGradient = playerCtx.createRadialGradient(64, 64, 20, 64, 64, 64);
+        playerGradient.addColorStop(0, '#00ffff');
+        playerGradient.addColorStop(0.5, '#00aaff');
+        playerGradient.addColorStop(1, '#0055ff');
         playerCtx.fillStyle = playerGradient;
-        playerCtx.fillRect(0, 0, 64, 64);
+        playerCtx.fillRect(0, 0, 128, 128);
         this.textures.player = new THREE.CanvasTexture(playerCanvas);
 
-        // Ground texture (checkered pattern)
+        // Ground texture (neon grid)
         const groundCanvas = document.createElement('canvas');
-        groundCanvas.width = 128;
-        groundCanvas.height = 128;
+        groundCanvas.width = 256;
+        groundCanvas.height = 256;
         const groundCtx = groundCanvas.getContext('2d');
+        groundCtx.fillStyle = '#1a1a2a';
+        groundCtx.fillRect(0, 0, 256, 256);
+        groundCtx.strokeStyle = '#00ffff';
+        groundCtx.lineWidth = 2;
         for (let i = 0; i < 8; i++) {
-            for (let j = 0; j < 8; j++) {
-                groundCtx.fillStyle = (i + j) % 2 === 0 ? '#555577' : '#444466';
-                groundCtx.fillRect(i * 16, j * 16, 16, 16);
-            }
+            groundCtx.beginPath();
+            groundCtx.moveTo(i * 32, 0);
+            groundCtx.lineTo(i * 32, 256);
+            groundCtx.stroke();
+            groundCtx.beginPath();
+            groundCtx.moveTo(0, i * 32);
+            groundCtx.lineTo(256, i * 32);
+            groundCtx.stroke();
         }
         this.textures.ground = new THREE.CanvasTexture(groundCanvas);
         this.textures.ground.wrapS = THREE.RepeatWrapping;
         this.textures.ground.wrapT = THREE.RepeatWrapping;
-        this.textures.ground.repeat.set(2, 2);
 
-        // Obstacle texture (danger stripes)
-        const obstacleCanvas = document.createElement('canvas');
-        obstacleCanvas.width = 64;
-        obstacleCanvas.height = 64;
-        const obstacleCtx = obstacleCanvas.getContext('2d');
-        for (let i = 0; i < 8; i++) {
-            obstacleCtx.fillStyle = i % 2 === 0 ? '#ff4444' : '#ffcc00';
-            obstacleCtx.fillRect(0, i * 8, 64, 8);
-        }
-        this.textures.obstacle = new THREE.CanvasTexture(obstacleCanvas);
+        // Platform texture (glowing)
+        const platformCanvas = document.createElement('canvas');
+        platformCanvas.width = 128;
+        platformCanvas.height = 128;
+        const platformCtx = platformCanvas.getContext('2d');
+        const platformGradient = platformCtx.createLinearGradient(0, 0, 128, 128);
+        platformGradient.addColorStop(0, '#ffaa00');
+        platformGradient.addColorStop(0.5, '#ff8800');
+        platformGradient.addColorStop(1, '#ff6600');
+        platformCtx.fillStyle = platformGradient;
+        platformCtx.fillRect(0, 0, 128, 128);
+        this.textures.platform = new THREE.CanvasTexture(platformCanvas);
     }
 
     createPlayer() {
-        // Create a more complex player shape (composite geometry)
-        const group = new THREE.Group();
-
-        // Main body
-        const bodyGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
-        const bodyMaterial = new THREE.MeshLambertMaterial({
+        // Epic rotating cube with glow
+        const geometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+        const material = new THREE.MeshLambertMaterial({
             map: this.textures.player,
-            emissive: 0x003322,
-            emissiveIntensity: 0.2
+            emissive: 0x00ffff,
+            emissiveIntensity: 0.5
         });
-        const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-        group.add(body);
-
-        // Add spikes for detail
-        const spikeGeometry = new THREE.ConeGeometry(0.15, 0.3, 4);
-        const spikeMaterial = new THREE.MeshLambertMaterial({ color: 0xffff00 });
-
-        const positions = [
-            { x: 0.5, y: 0, z: 0 },
-            { x: -0.5, y: 0, z: 0 },
-            { x: 0, y: 0.5, z: 0 },
-            { x: 0, y: -0.5, z: 0 }
-        ];
-
-        positions.forEach(pos => {
-            const spike = new THREE.Mesh(spikeGeometry, spikeMaterial);
-            spike.position.set(pos.x, pos.y, pos.z);
-            if (pos.x !== 0) spike.rotation.z = Math.PI / 2;
-            group.add(spike);
-        });
-
-        this.player = group;
-        this.player.position.set(-3, 0.5, 0);  // Start in middle of playable area
+        this.player = new THREE.Mesh(geometry, material);
+        this.player.position.set(-4, this.groundY + 0.9, 0);
         this.scene.add(this.player);
     }
 
     createGround() {
-        for (let i = 0; i < 20; i++) {
-            const groundGeometry = new THREE.BoxGeometry(5, 0.5, 3);
+        // Neon grid ground
+        for (let i = 0; i < 30; i++) {
+            const groundGeometry = new THREE.BoxGeometry(3, 0.5, 3);
             const groundMaterial = new THREE.MeshLambertMaterial({
-                map: this.textures.ground
+                map: this.textures.ground,
+                emissive: 0x0055ff,
+                emissiveIntensity: 0.2
             });
             const groundPiece = new THREE.Mesh(groundGeometry, groundMaterial);
-            groundPiece.position.set(i * 5 - 10, this.groundY, 0);
-            groundPiece.receiveShadow = true;
+            groundPiece.position.set(i * 3 - 10, this.groundY, 0);
             this.scene.add(groundPiece);
             this.ground.push(groundPiece);
         }
     }
 
-    createObstacles() {
-        for (let i = 0; i < 5; i++) {
-            this.createObstacle(i * 15 + 8); // More spacing between obstacles
+    createLevel() {
+        // Create varied obstacles
+        let xPos = 5;
+
+        for (let i = 0; i < 20; i++) {
+            const obstacleType = Math.floor(Math.random() * 4);
+
+            switch(obstacleType) {
+                case 0:
+                    this.createSpike(xPos);
+                    xPos += 4;
+                    break;
+                case 1:
+                    this.createPlatform(xPos, 0.5 + Math.random() * 1.5);
+                    xPos += 5;
+                    break;
+                case 2:
+                    this.createSpike(xPos);
+                    this.createSpike(xPos + 1.2);
+                    this.createSpike(xPos + 2.4);
+                    xPos += 6;
+                    break;
+                case 3:
+                    this.createPlatform(xPos, 2 + Math.random() * 1);
+                    this.createSpike(xPos + 2);
+                    xPos += 6;
+                    break;
+            }
         }
+
+        // Create first portal
+        this.createPortal(30, 'plane');
     }
 
-    createObstacle(xPosition) {
-        // Create floating obstacles (like missiles) - similar to prototype mode
-        const group = new THREE.Group();
-
-        // Random height in the playable area (floating in the air)
-        const yPosition = Math.random() * 3 - 1.5;
-
-        // Main body (missile)
-        const baseGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.8, 6);
-        const baseMaterial = new THREE.MeshLambertMaterial({
-            map: this.textures.obstacle
+    createSpike(xPosition) {
+        // Glowing deadly spike
+        const spikeGeometry = new THREE.ConeGeometry(0.4, 1, 4);
+        const spikeMaterial = new THREE.MeshLambertMaterial({
+            color: 0xff0066,
+            emissive: 0xff0066,
+            emissiveIntensity: 0.8
         });
-        const base = new THREE.Mesh(baseGeometry, baseMaterial);
-        base.rotation.z = Math.PI / 2;
-        group.add(base);
-
-        // Fins
-        const finGeometry = new THREE.BoxGeometry(0.1, 0.4, 0.4);
-        const finMaterial = new THREE.MeshLambertMaterial({ color: 0xff0000 });
-        const fin1 = new THREE.Mesh(finGeometry, finMaterial);
-        fin1.position.x = -0.3;
-        fin1.position.y = 0.2;
-        group.add(fin1);
-
-        const fin2 = new THREE.Mesh(finGeometry, finMaterial);
-        fin2.position.x = -0.3;
-        fin2.position.y = -0.2;
-        group.add(fin2);
-
-        group.position.set(xPosition, yPosition, 0);
-        group.userData.yPosition = yPosition;
-        group.castShadow = true;
-        this.scene.add(group);
-        this.obstacles.push(group);
+        const spike = new THREE.Mesh(spikeGeometry, spikeMaterial);
+        spike.position.set(xPosition, this.groundY + 0.75, 0);
+        spike.rotation.y = Math.PI / 4;
+        this.scene.add(spike);
+        this.spikes.push(spike);
     }
 
-    createDecorations() {
-        // Add floating crystals in background
-        for (let i = 0; i < 10; i++) {
-            const crystalGeometry = new THREE.OctahedronGeometry(0.3);
-            const crystalMaterial = new THREE.MeshLambertMaterial({
-                color: 0x00ddff,
-                emissive: 0x0088aa,
-                emissiveIntensity: 0.5,
-                transparent: true,
-                opacity: 0.8
-            });
-            const crystal = new THREE.Mesh(crystalGeometry, crystalMaterial);
-            crystal.position.set(
-                Math.random() * 40 - 20,
-                Math.random() * 3 + 1,
-                Math.random() * -5 - 2
-            );
-            crystal.userData.rotationSpeed = Math.random() * 0.02 + 0.01;
-            crystal.userData.bobSpeed = Math.random() * 0.02 + 0.01;
-            crystal.userData.bobOffset = Math.random() * Math.PI * 2;
-            this.scene.add(crystal);
-            this.decorations.push(crystal);
+    createPlatform(xPosition, height) {
+        // Glowing platform
+        const platformGeometry = new THREE.BoxGeometry(3, 0.4, 1);
+        const platformMaterial = new THREE.MeshLambertMaterial({
+            map: this.textures.platform,
+            emissive: 0xffaa00,
+            emissiveIntensity: 0.5
+        });
+        const platform = new THREE.Mesh(platformGeometry, platformMaterial);
+        platform.position.set(xPosition, this.groundY + height, 0);
+        platform.userData.height = 0.4;
+        this.scene.add(platform);
+        this.platforms.push(platform);
+    }
+
+    createPortal(xPosition, targetMode) {
+        // Create portal frame with glow
+        const frameGeometry = new THREE.TorusGeometry(1.2, 0.15, 8, 20);
+        const frameMaterial = new THREE.MeshLambertMaterial({
+            color: targetMode === 'plane' ? 0x00ffff : 0xff00ff,
+            emissive: targetMode === 'plane' ? 0x00ffff : 0xff00ff,
+            emissiveIntensity: 1.2
+        });
+        const frame = new THREE.Mesh(frameGeometry, frameMaterial);
+        frame.position.set(xPosition, 0, 0);
+        frame.rotation.y = Math.PI / 2;
+
+        // Create portal center with procedural texture
+        const portalCanvas = document.createElement('canvas');
+        portalCanvas.width = 128;
+        portalCanvas.height = 128;
+        const ctx = portalCanvas.getContext('2d');
+        const gradient = ctx.createRadialGradient(64, 64, 10, 64, 64, 64);
+        gradient.addColorStop(0, targetMode === 'plane' ? '#00ffff' : '#ff00ff');
+        gradient.addColorStop(0.5, targetMode === 'plane' ? '#0088ff' : '#ff0088');
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 128, 128);
+        const portalTexture = new THREE.CanvasTexture(portalCanvas);
+
+        const centerGeometry = new THREE.CircleGeometry(1.1, 32);
+        const centerMaterial = new THREE.MeshLambertMaterial({
+            map: portalTexture,
+            transparent: true,
+            opacity: 0.6,
+            emissive: targetMode === 'plane' ? 0x0088ff : 0xff0088,
+            emissiveIntensity: 0.8
+        });
+        const center = new THREE.Mesh(centerGeometry, centerMaterial);
+        center.position.set(xPosition, 0, 0);
+
+        this.scene.add(frame);
+        this.scene.add(center);
+
+        const portal = {
+            frame: frame,
+            center: center,
+            position: xPosition,
+            targetMode: targetMode,
+            activated: false
+        };
+
+        this.portals.push(portal);
+    }
+
+    createBarrier(xPosition, gapY, gapSize) {
+        // Enhanced barrier for plane mode with textures
+        // Create barrier texture
+        const barrierCanvas = document.createElement('canvas');
+        barrierCanvas.width = 128;
+        barrierCanvas.height = 128;
+        const ctx = barrierCanvas.getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 128, 128);
+        gradient.addColorStop(0, '#ff6600');
+        gradient.addColorStop(0.5, '#ff4400');
+        gradient.addColorStop(1, '#cc3300');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 128, 128);
+        // Add stripes
+        ctx.fillStyle = '#ffaa00';
+        for (let i = 0; i < 5; i++) {
+            ctx.fillRect(0, i * 32, 128, 10);
         }
+        const barrierTexture = new THREE.CanvasTexture(barrierCanvas);
+
+        // Top barrier
+        const topHeight = gapY - gapSize / 2 + 2;
+        const topGeometry = new THREE.BoxGeometry(0.6, topHeight, 1.5);
+        const topMaterial = new THREE.MeshLambertMaterial({
+            map: barrierTexture,
+            emissive: 0xff6600,
+            emissiveIntensity: 0.6
+        });
+        const topBarrier = new THREE.Mesh(topGeometry, topMaterial);
+        topBarrier.position.set(xPosition, gapY + gapSize / 2 + topHeight / 2, 0);
+
+        // Bottom barrier
+        const bottomHeight = gapY + gapSize / 2 - this.groundY;
+        const bottomGeometry = new THREE.BoxGeometry(0.6, bottomHeight, 1.5);
+        const bottomMaterial = new THREE.MeshLambertMaterial({
+            map: barrierTexture,
+            emissive: 0xff6600,
+            emissiveIntensity: 0.6
+        });
+        const bottomBarrier = new THREE.Mesh(bottomGeometry, bottomMaterial);
+        bottomBarrier.position.set(xPosition, this.groundY + bottomHeight / 2, 0);
+
+        this.scene.add(topBarrier);
+        this.scene.add(bottomBarrier);
+
+        this.barriers.push({
+            top: topBarrier,
+            bottom: bottomBarrier,
+            gapY: gapY,
+            gapSize: gapSize
+        });
+    }
+
+    createBackground() {
+        // Floating geometric shapes
+        for (let i = 0; i < 20; i++) {
+            const shapes = [
+                new THREE.BoxGeometry(0.5, 0.5, 0.5),
+                new THREE.OctahedronGeometry(0.3),
+                new THREE.TetrahedronGeometry(0.4)
+            ];
+            const geometry = shapes[Math.floor(Math.random() * shapes.length)];
+            const material = new THREE.MeshLambertMaterial({
+                color: new THREE.Color().setHSL(Math.random(), 1.0, 0.6),
+                emissive: new THREE.Color().setHSL(Math.random(), 1.0, 0.5),
+                emissiveIntensity: 0.4,
+                transparent: true,
+                opacity: 0.4
+            });
+            const shape = new THREE.Mesh(geometry, material);
+            shape.position.set(
+                Math.random() * 40 - 10,
+                Math.random() * 6 - 2,
+                -3 - Math.random() * 6
+            );
+            shape.userData.rotationSpeed = {
+                x: (Math.random() - 0.5) * 0.03,
+                y: (Math.random() - 0.5) * 0.03,
+                z: (Math.random() - 0.5) * 0.03
+            };
+            this.scene.add(shape);
+            this.backgroundCubes.push(shape);
+        }
+    }
+
+    createParticle(x, y) {
+        // Enhanced particle effect
+        const geometry = new THREE.OctahedronGeometry(0.08);
+        const material = new THREE.MeshLambertMaterial({
+            color: 0x00ffff,
+            emissive: 0x00ffff,
+            emissiveIntensity: 1.0,
+            transparent: true,
+            opacity: 1
+        });
+        const particle = new THREE.Mesh(geometry, material);
+        particle.position.set(x, y, 0);
+        particle.userData.velocity = {
+            x: (Math.random() - 0.5) * 0.15,
+            y: Math.random() * 0.25,
+            rotation: Math.random() * 0.2,
+            life: 1.0
+        };
+        this.scene.add(particle);
+        this.particles.push(particle);
+    }
+
+    createTrail() {
+        // Trail effect behind player
+        if (this.trails.length > 10) {
+            const oldTrail = this.trails.shift();
+            this.scene.remove(oldTrail);
+        }
+
+        const geometry = new THREE.BoxGeometry(0.6, 0.6, 0.6);
+        const material = new THREE.MeshLambertMaterial({
+            color: 0x00ffff,
+            transparent: true,
+            opacity: 0.3,
+            emissive: 0x00ffff,
+            emissiveIntensity: 0.5
+        });
+        const trail = new THREE.Mesh(geometry, material);
+        trail.position.copy(this.player.position);
+        trail.rotation.copy(this.player.rotation);
+        trail.userData.life = 1.0;
+        this.scene.add(trail);
+        this.trails.push(trail);
     }
 
     handleInput(keys, mobileJump) {
         if (this.isGameOver) return;
 
-        // Apply thrust when space is held (like Jetpack Joyride)
-        if (keys['Space'] || keys['ArrowUp'] || mobileJump) {
-            this.verticalVelocity += this.thrust;
+        if (this.gameMode === 'cube') {
+            // Jump on key press (not hold)
+            if ((keys['Space'] || keys['ArrowUp'] || mobileJump) && this.isOnGround) {
+                this.verticalVelocity = this.jumpVelocity;
+                this.isOnGround = false;
+
+                // Particle effect on jump
+                for (let i = 0; i < 5; i++) {
+                    this.createParticle(this.player.position.x, this.player.position.y - 0.4);
+                }
+            }
+        } else if (this.gameMode === 'plane') {
+            // Thrust controls for plane mode
+            if (keys['Space'] || keys['ArrowUp'] || mobileJump) {
+                this.verticalVelocity += 0.015;
+            }
         }
     }
 
     update() {
         if (this.isGameOver) return;
 
-        // Apply gravity constantly
-        this.verticalVelocity -= this.gravity;
+        this.pulseTime += 0.05;
 
-        // Clamp velocity
-        this.verticalVelocity = Math.max(-this.maxVelocity, Math.min(this.maxVelocity, this.verticalVelocity));
-
-        // Update player position
-        this.player.position.y += this.verticalVelocity;
-
-        // Check boundaries (but don't game over, just bounce)
-        if (this.player.position.y < this.groundY + 0.5) {
-            this.player.position.y = this.groundY + 0.5;
-            this.verticalVelocity = 0;
+        if (this.gameMode === 'plane') {
+            this.handlePlaneMode();
+        } else {
+            this.handleCubeMode();
         }
 
-        if (this.player.position.y > this.ceilingY - 0.5) {
-            this.player.position.y = this.ceilingY - 0.5;
-            this.verticalVelocity = 0;
-        }
-
-        // Tilt plane based on velocity
-        this.player.rotation.z = -this.verticalVelocity * 1.5;
+        this.checkPortals();
 
         // Move and recycle ground
         this.ground.forEach(piece => {
             piece.position.x -= this.gameSpeed;
             if (piece.position.x < -15) {
-                piece.position.x += 100;
+                piece.position.x += 90;
+            }
+
+            // Pulse effect
+            const pulse = Math.sin(this.pulseTime + piece.position.x * 0.1) * 0.1;
+            piece.material.emissiveIntensity = 0.2 + pulse;
+        });
+
+        // Move platforms
+        this.platforms.forEach(platform => {
+            platform.position.x -= this.gameSpeed;
+
+            // Pulse effect
+            const pulse = Math.sin(this.pulseTime * 2 + platform.position.x * 0.2) * 0.2;
+            platform.material.emissiveIntensity = 0.5 + pulse;
+
+            if (platform.position.x < -15) {
+                platform.position.x = 40;
+                platform.position.y = this.groundY + 0.5 + Math.random() * 2;
             }
         });
 
-        // Move and recycle obstacles
-        this.obstacles.forEach(obstacle => {
-            obstacle.position.x -= this.gameSpeed;
+        // Move and check spike collisions (cube mode only)
+        if (this.gameMode === 'cube') {
+            this.spikes.forEach(spike => {
+                spike.position.x -= this.gameSpeed;
 
-            // Recycle obstacle
-            if (obstacle.position.x < -10) {
-                obstacle.position.x = 25;
-                const newY = Math.random() * 3 - 1.5;
-                obstacle.position.y = newY;
-                obstacle.userData.yPosition = newY;
-            }
+                // Rotate and pulse
+                spike.rotation.y += 0.05;
+                const pulse = Math.sin(this.pulseTime * 3) * 0.3;
+                spike.material.emissiveIntensity = 0.8 + pulse;
 
-            // Collision detection
-            const distance = Math.abs(this.player.position.x - obstacle.position.x);
-            const heightDiff = Math.abs(this.player.position.y - obstacle.position.y);
+                if (spike.position.x < -15) {
+                    spike.position.x = 40;
+                }
 
-            if (distance < 0.8 && heightDiff < 0.5) {
-                this.gameOver();
+                // Collision detection
+                const distance = Math.abs(this.player.position.x - spike.position.x);
+                const heightDiff = Math.abs(this.player.position.y - spike.position.y);
+
+                if (distance < 0.6 && heightDiff < 0.8) {
+                    this.gameOver();
+                }
+            });
+        }
+
+        // Move and check barrier collisions (plane mode only)
+        if (this.gameMode === 'plane') {
+            this.barriers.forEach(barrier => {
+                barrier.top.position.x -= this.gameSpeed;
+                barrier.bottom.position.x -= this.gameSpeed;
+
+                // Pulse effect
+                const pulse = Math.sin(this.pulseTime * 2) * 0.2;
+                barrier.top.material.emissiveIntensity = 0.6 + pulse;
+                barrier.bottom.material.emissiveIntensity = 0.6 + pulse;
+
+                // Recycle barrier
+                if (barrier.top.position.x < -15) {
+                    const newX = 50;
+                    const newGapY = -0.5 + Math.random() * 2;
+                    const newGapSize = 3.2 + Math.random() * 0.8;
+
+                    // Update positions
+                    barrier.top.position.x = newX;
+                    barrier.bottom.position.x = newX;
+                    barrier.gapY = newGapY;
+                    barrier.gapSize = newGapSize;
+
+                    // Recalculate heights
+                    const topHeight = newGapY - newGapSize / 2 + 2;
+                    const bottomHeight = newGapY + newGapSize / 2 - this.groundY;
+                    barrier.top.position.y = newGapY + newGapSize / 2 + topHeight / 2;
+                    barrier.bottom.position.y = this.groundY + bottomHeight / 2;
+
+                    // Update geometry
+                    barrier.top.geometry.dispose();
+                    barrier.bottom.geometry.dispose();
+                    barrier.top.geometry = new THREE.BoxGeometry(0.6, topHeight, 1.5);
+                    barrier.bottom.geometry = new THREE.BoxGeometry(0.6, bottomHeight, 1.5);
+                }
+
+                // Collision detection
+                const distance = Math.abs(this.player.position.x - barrier.top.position.x);
+                if (distance < 0.8) {
+                    const playerRadius = 0.5;
+                    if (this.player.position.y + playerRadius > barrier.gapY + barrier.gapSize / 2 ||
+                        this.player.position.y - playerRadius < barrier.gapY - barrier.gapSize / 2) {
+                        this.gameOver();
+                    }
+                }
+            });
+        }
+
+        // Update background cubes
+        this.backgroundCubes.forEach(cube => {
+            cube.rotation.x += cube.userData.rotationSpeed.x;
+            cube.rotation.y += cube.userData.rotationSpeed.y;
+            cube.rotation.z += cube.userData.rotationSpeed.z;
+
+            cube.position.x -= this.gameSpeed * 0.3;
+            if (cube.position.x < -15) {
+                cube.position.x = 30;
             }
         });
 
-        // Animate obstacles (rotation)
-        this.obstacles.forEach((obstacle, index) => {
-            obstacle.rotation.z += 0.03 * (index % 2 === 0 ? 1 : -1);
-        });
+        // Update particles
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            const particle = this.particles[i];
+            particle.position.x += particle.userData.velocity.x;
+            particle.position.y += particle.userData.velocity.y;
+            particle.rotation.x += particle.userData.velocity.rotation;
+            particle.rotation.y += particle.userData.velocity.rotation;
+            particle.userData.velocity.y -= 0.01;
+            particle.userData.life -= 0.02;
+            particle.material.opacity = particle.userData.life;
 
-        // Animate decorations
-        this.decorations.forEach((decoration) => {
-            decoration.rotation.x += decoration.userData.rotationSpeed;
-            decoration.rotation.y += decoration.userData.rotationSpeed * 0.7;
+            if (particle.userData.life <= 0) {
+                this.scene.remove(particle);
+                this.particles.splice(i, 1);
+            }
+        }
 
-            // Bob up and down
-            const bobAmount = Math.sin(Date.now() * 0.001 * decoration.userData.bobSpeed + decoration.userData.bobOffset) * 0.2;
-            decoration.position.y += bobAmount * 0.01;
+        // Update trails
+        for (let i = this.trails.length - 1; i >= 0; i--) {
+            const trail = this.trails[i];
+            trail.userData.life -= 0.05;
+            trail.material.opacity = trail.userData.life * 0.3;
 
-            // Recycle decorations
-            decoration.position.x -= this.gameSpeed * 0.5;
-            if (decoration.position.x < -20) {
-                decoration.position.x = 20;
+            if (trail.userData.life <= 0) {
+                this.scene.remove(trail);
+                this.trails.splice(i, 1);
+            }
+        }
+
+        // Create trail effect
+        if (Math.random() < 0.3) {
+            this.createTrail();
+        }
+
+        // Move and check portal collisions
+        this.portals.forEach(portal => {
+            portal.frame.position.x -= this.gameSpeed;
+            portal.center.position.x -= this.gameSpeed;
+            portal.position -= this.gameSpeed;
+
+            // Rotate portal for effect
+            portal.frame.rotation.z += 0.05;
+
+            // Pulse effect
+            const pulse = Math.sin(this.pulseTime * 3) * 0.4;
+            portal.frame.material.emissiveIntensity = 1.2 + pulse;
+
+            // Recycle portal
+            if (portal.position < -15) {
+                portal.position = 60;
+                portal.frame.position.x = 60;
+                portal.center.position.x = 60;
+                portal.activated = false;
+                portal.targetMode = portal.targetMode === 'plane' ? 'cube' : 'plane';
+                portal.frame.material.color.setHex(portal.targetMode === 'plane' ? 0x00ffff : 0xff00ff);
+                portal.frame.material.emissive.setHex(portal.targetMode === 'plane' ? 0x00ffff : 0xff00ff);
+                portal.center.material.emissive.setHex(portal.targetMode === 'plane' ? 0x0088ff : 0xff0088);
             }
         });
 
         // Increase score
-        this.score += 0.1;
+        this.score += 0.2;
         this.updateScore(Math.floor(this.score));
 
         // Gradually increase difficulty
-        this.gameSpeed = 0.08 + (this.score * 0.00003);
+        this.gameSpeed = 0.12 + (this.score * 0.00005);
+    }
+
+    handlePlaneMode() {
+        // Apply gravity
+        this.verticalVelocity -= this.gravity;
+
+        // Limit the vertical velocity
+        this.verticalVelocity = Math.max(-this.maxVelocity, Math.min(this.maxVelocity, this.verticalVelocity));
+
+        // Update player position
+        this.player.position.y += this.verticalVelocity;
+
+        // Rotate the player to simulate flight dynamics
+        this.player.rotation.z = -this.verticalVelocity * 0.5;
+    }
+
+    handleCubeMode() {
+        // Cube mode logic (e.g., jumping, running)
+        if (this.isOnGround) {
+            this.verticalVelocity = 0;
+        } else {
+            this.verticalVelocity -= this.gravity;
+        }
+
+        this.player.position.y += this.verticalVelocity;
+
+        // Ground collision
+        this.isOnGround = false;
+        if (this.player.position.y <= this.groundY + 0.9) {
+            this.player.position.y = this.groundY + 0.9;
+            this.verticalVelocity = 0;
+            this.isOnGround = true;
+            this.playerRotation = Math.round(this.playerRotation / (Math.PI / 2)) * (Math.PI / 2);
+        }
+
+        // Rotate player cube
+        if (!this.isOnGround) {
+            this.playerRotation += 0.15;
+        }
+        this.player.rotation.z = this.playerRotation;
+
+        // Platform collision (land on top only)
+        this.platforms.forEach(platform => {
+            const distance = Math.abs(this.player.position.x - platform.position.x);
+            const heightDiff = this.player.position.y - platform.position.y;
+
+            if (distance < 1.6 && heightDiff > 0 && heightDiff < 0.9 && this.verticalVelocity < 0) {
+                this.player.position.y = platform.position.y + 0.6;
+                this.verticalVelocity = 0;
+                this.isOnGround = true;
+                this.playerRotation = Math.round(this.playerRotation / (Math.PI / 2)) * (Math.PI / 2);
+            }
+        });
+    }
+
+    checkPortals() {
+        for (const portal of this.portals) {
+            const distance = Math.abs(this.player.position.x - portal.position);
+            if (distance < 1.2 && !portal.activated) {
+                portal.activated = true;
+                this.switchGameMode(portal.targetMode);
+            }
+        }
+    }
+
+    switchGameMode(targetMode) {
+        if (targetMode === 'plane' && this.gameMode === 'cube') {
+            this.transformToPlane();
+        } else if (targetMode === 'cube' && this.gameMode === 'plane') {
+            this.transformToCube();
+        }
+    }
+
+    transformToPlane() {
+        // Remove cube player
+        this.scene.remove(this.player);
+
+        // Create plane from primitives
+        const planeGroup = new THREE.Group();
+
+        // Fuselage
+        const bodyGeometry = new THREE.CylinderGeometry(0.15, 0.15, 1.2, 8);
+        const bodyMaterial = new THREE.MeshLambertMaterial({
+            color: 0x00ffff,
+            emissive: 0x00ffff,
+            emissiveIntensity: 0.5
+        });
+        const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+        body.rotation.z = Math.PI / 2;
+        planeGroup.add(body);
+
+        // Wings
+        const wingGeometry = new THREE.BoxGeometry(1.8, 0.1, 0.4);
+        const wingMaterial = new THREE.MeshLambertMaterial({
+            color: 0x00ffff,
+            emissive: 0x00ffff,
+            emissiveIntensity: 0.5
+        });
+        const wings = new THREE.Mesh(wingGeometry, wingMaterial);
+        planeGroup.add(wings);
+
+        // Nose cone
+        const noseGeometry = new THREE.ConeGeometry(0.15, 0.4, 8);
+        const noseMaterial = new THREE.MeshLambertMaterial({
+            color: 0xffaa00,
+            emissive: 0xffaa00,
+            emissiveIntensity: 0.6
+        });
+        const nose = new THREE.Mesh(noseGeometry, noseMaterial);
+        nose.rotation.z = -Math.PI / 2;
+        nose.position.x = 0.8;
+        planeGroup.add(nose);
+
+        planeGroup.position.copy(this.player.position);
+        this.scene.add(planeGroup);
+        this.player = planeGroup;
+        this.gameMode = 'plane';
+        // Give a small upward velocity to prevent immediate falling
+        this.verticalVelocity = 0.2;
+
+        // Clear cube obstacles
+        this.spikes.forEach(spike => this.scene.remove(spike));
+        this.spikes = [];
+        this.platforms.forEach(platform => this.scene.remove(platform));
+        this.platforms = [];
+
+        // Spawn plane obstacles (barriers with gaps)
+        for (let i = 0; i < 8; i++) {
+            const xPos = 10 + i * 8;
+            const gapY = -0.2 + Math.random() * 1.5;
+            const gapSize = 3.2 + Math.random() * 0.8;
+            this.createBarrier(xPos, gapY, gapSize);
+        }
+
+        // Particle burst effect
+        for (let i = 0; i < 15; i++) {
+            this.createParticle(this.player.position.x, this.player.position.y);
+        }
+    }
+
+    transformToCube() {
+        // Remove plane player
+        this.scene.remove(this.player);
+
+        // Create cube player
+        const geometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+        const material = new THREE.MeshLambertMaterial({
+            map: this.textures.player,
+            emissive: 0x00ffff,
+            emissiveIntensity: 0.5
+        });
+        const cube = new THREE.Mesh(geometry, material);
+        cube.position.copy(this.player.position);
+        this.scene.add(cube);
+        this.player = cube;
+        this.gameMode = 'cube';
+        this.verticalVelocity = 0;
+        this.playerRotation = 0;
+
+        // Clear plane obstacles
+        this.barriers.forEach(barrier => {
+            this.scene.remove(barrier.top);
+            this.scene.remove(barrier.bottom);
+        });
+        this.barriers = [];
+
+        // Spawn cube obstacles (spikes and platforms)
+        let xPos = 10;
+        for (let i = 0; i < 10; i++) {
+            const obstacleType = Math.floor(Math.random() * 4);
+            switch(obstacleType) {
+                case 0:
+                    this.createSpike(xPos);
+                    xPos += 4;
+                    break;
+                case 1:
+                    this.createPlatform(xPos, 0.5 + Math.random() * 1.5);
+                    xPos += 5;
+                    break;
+                case 2:
+                    this.createSpike(xPos);
+                    this.createSpike(xPos + 1.2);
+                    xPos += 5;
+                    break;
+                case 3:
+                    this.createPlatform(xPos, 2 + Math.random() * 1);
+                    this.createSpike(xPos + 2);
+                    xPos += 6;
+                    break;
+            }
+        }
+
+        // Particle burst effect
+        for (let i = 0; i < 15; i++) {
+            this.createParticle(this.player.position.x, this.player.position.y);
+        }
     }
 
     updateScore(score) {
@@ -325,6 +827,12 @@ export default class FullMode {
 
     gameOver() {
         this.isGameOver = true;
+
+        // Epic explosion effect
+        for (let i = 0; i < 30; i++) {
+            this.createParticle(this.player.position.x, this.player.position.y);
+        }
+
         const gameOverDiv = document.getElementById('game-over');
         if (gameOverDiv) {
             gameOverDiv.style.display = 'block';
@@ -336,21 +844,48 @@ export default class FullMode {
     }
 
     restart() {
-        this.obstacles.forEach(obstacle => this.scene.remove(obstacle));
-        this.obstacles = [];
+        // Clear all objects
+        this.spikes.forEach(spike => this.scene.remove(spike));
+        this.spikes = [];
+
+        this.platforms.forEach(platform => this.scene.remove(platform));
+        this.platforms = [];
+
+        this.barriers.forEach(barrier => {
+            this.scene.remove(barrier.top);
+            this.scene.remove(barrier.bottom);
+        });
+        this.barriers = [];
 
         this.ground.forEach(piece => this.scene.remove(piece));
         this.ground = [];
 
-        this.decorations.forEach(decoration => this.scene.remove(decoration));
-        this.decorations = [];
+        this.backgroundCubes.forEach(cube => this.scene.remove(cube));
+        this.backgroundCubes = [];
+
+        this.particles.forEach(particle => this.scene.remove(particle));
+        this.particles = [];
+
+        this.trails.forEach(trail => this.scene.remove(trail));
+        this.trails = [];
+
+        this.portals.forEach(portal => {
+            this.scene.remove(portal.frame);
+            this.scene.remove(portal.center);
+        });
+        this.portals = [];
 
         this.scene.remove(this.player);
 
+        // Reset game state
         this.score = 0;
-        this.gameSpeed = 0.08;
+        this.gameSpeed = 0.12;
         this.isGameOver = false;
         this.verticalVelocity = 0;
+        this.isOnGround = false;
+        this.playerRotation = 0;
+        this.pulseTime = 0;
+        this.gameMode = 'cube';
 
         const gameOverDiv = document.getElementById('game-over');
         if (gameOverDiv) {
@@ -361,13 +896,29 @@ export default class FullMode {
     }
 
     cleanup() {
-        this.obstacles.forEach(obstacle => this.scene.remove(obstacle));
+        this.spikes.forEach(spike => this.scene.remove(spike));
+        this.platforms.forEach(platform => this.scene.remove(platform));
+        this.barriers.forEach(barrier => {
+            this.scene.remove(barrier.top);
+            this.scene.remove(barrier.bottom);
+        });
         this.ground.forEach(piece => this.scene.remove(piece));
-        this.decorations.forEach(decoration => this.scene.remove(decoration));
+        this.backgroundCubes.forEach(cube => this.scene.remove(cube));
+        this.particles.forEach(particle => this.scene.remove(particle));
+        this.trails.forEach(trail => this.scene.remove(trail));
+        this.portals.forEach(portal => {
+            this.scene.remove(portal.frame);
+            this.scene.remove(portal.center);
+        });
         if (this.player) this.scene.remove(this.player);
 
-        this.obstacles = [];
+        this.spikes = [];
+        this.platforms = [];
+        this.barriers = [];
         this.ground = [];
-        this.decorations = [];
+        this.backgroundCubes = [];
+        this.particles = [];
+        this.trails = [];
+        this.portals = [];
     }
 }
