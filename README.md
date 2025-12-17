@@ -2,7 +2,7 @@
 
 A **3D Geometry Dash–style endless runner** built with **THREE.js** for the CS559 Computer Graphics course. The game recreates core Geometry Dash mechanics such as automatic forward movement, gravity-based jumping, mode transitions, and obstacle avoidance, all rendered in a fully 3D environment.
 
-**Group ID: 0000** (Update this in [index.html](src/index.html) line 11)
+**Group ID: 1973** (Update this in [index.html](src/index.html) line 11)
 
 ---
 
