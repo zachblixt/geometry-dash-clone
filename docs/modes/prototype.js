@@ -33,11 +33,11 @@ export default class PrototypeMode {
         this.portals = [];
 
         // Plane physics
-        this.planeGravity = 0.004; // Very light gravity for slow fall
-        this.planeThrustPower = 0.012; // Gentle thrust for slow climb
-        this.planeMaxUpVelocity = 0.25; // Slower max up speed
-        this.planeMaxDownVelocity = 0.25; // Slower max down speed
-        this.planeDrag = 0.96; // More air resistance for smoother control
+        this.planeGravity = 0.005; // Light gravity for slow fall
+        this.planeThrustPower = 0.018; // Stronger thrust for easier climbing
+        this.planeMaxUpVelocity = 0.35; // Faster max up speed to clear obstacles
+        this.planeMaxDownVelocity = 0.3; // Controlled down speed
+        this.planeDrag = 0.97; // Moderate air resistance
     }
 
     init() {
@@ -331,8 +331,9 @@ export default class PrototypeMode {
         this.player.position.y += this.verticalVelocity;
         this.player.rotation.z = -this.verticalVelocity * 0.8;
 
-        if (this.player.position.y > 3) {
-            this.player.position.y = 3;
+        // Keep plane within bounds - higher ceiling for easier flight
+        if (this.player.position.y > 4.5) {
+            this.player.position.y = 4.5;
             this.verticalVelocity = 0;
         }
         if (this.player.position.y < this.groundY + 0.5) {
@@ -428,9 +429,9 @@ export default class PrototypeMode {
                 barrier.bottom.material.emissiveIntensity = 0.4 + pulse;
 
                 if (barrier.top.position.x < -15) {
-                    const newX = 60;
-                    const newGapY = -0.2 + Math.random() * 1.2;
-                    const newGapSize = 4.0 + Math.random() * 0.8;
+                    const newX = 70;
+                    const newGapY = 0.2 + Math.random() * 1.0; // Higher, more centered gaps
+                    const newGapSize = 4.5 + Math.random() * 0.8; // Even bigger gaps
 
                     barrier.top.position.x = newX;
                     barrier.bottom.position.x = newX;
@@ -571,10 +572,10 @@ export default class PrototypeMode {
         this.platforms.forEach(platform => this.scene.remove(platform));
         this.platforms = [];
 
-        for (let i = 0; i < 6; i++) {
-            const xPos = 10 + i * 10;
-            const gapY = -0.2 + Math.random() * 1.2;
-            const gapSize = 4.0 + Math.random() * 0.8;
+        for (let i = 0; i < 5; i++) {
+            const xPos = 10 + i * 12; // More spacing
+            const gapY = 0.2 + Math.random() * 1.0; // Higher, more centered gaps
+            const gapSize = 4.5 + Math.random() * 0.8; // Even bigger gaps
             this.createBarrier(xPos, gapY, gapSize);
         }
 
