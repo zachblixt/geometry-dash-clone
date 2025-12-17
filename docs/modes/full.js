@@ -258,52 +258,44 @@ export default class FullMode {
         });
     }
 
-    createBarrier(xPosition, gapY, gapSize) {
-        const barrierCanvas = document.createElement('canvas');
-        barrierCanvas.width = 128;
-        barrierCanvas.height = 128;
-        const ctx = barrierCanvas.getContext('2d');
-        const gradient = ctx.createLinearGradient(0, 0, 128, 128);
-        gradient.addColorStop(0, '#ff6600');
-        gradient.addColorStop(0.5, '#ff4400');
-        gradient.addColorStop(1, '#cc3300');
+    createAsteroid(xPosition, yPosition) {
+        // Create a rocky asteroid using icosahedron
+        const size = 0.6 + Math.random() * 0.4; // Random size 0.6-1.0
+        const asteroidGeometry = new THREE.IcosahedronGeometry(size, 1);
+
+        // Create texture for asteroid
+        const asteroidCanvas = document.createElement('canvas');
+        asteroidCanvas.width = 128;
+        asteroidCanvas.height = 128;
+        const ctx = asteroidCanvas.getContext('2d');
+        const gradient = ctx.createRadialGradient(64, 64, 20, 64, 64, 64);
+        gradient.addColorStop(0, '#8B4513');
+        gradient.addColorStop(0.5, '#654321');
+        gradient.addColorStop(1, '#3E2723');
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, 128, 128);
-        ctx.fillStyle = '#ffaa00';
-        for (let i = 0; i < 5; i++) {
-            ctx.fillRect(0, i * 32, 128, 10);
-        }
-        const barrierTexture = new THREE.CanvasTexture(barrierCanvas);
+        const asteroidTexture = new THREE.CanvasTexture(asteroidCanvas);
 
-        const topHeight = gapY - gapSize / 2 + 2;
-        const topGeometry = new THREE.BoxGeometry(0.6, topHeight, 1.5);
-        const topMaterial = new THREE.MeshLambertMaterial({
-            map: barrierTexture,
+        const asteroidMaterial = new THREE.MeshLambertMaterial({
+            map: asteroidTexture,
+            color: 0x8B4513,
             emissive: 0xff6600,
-            emissiveIntensity: 0.6
+            emissiveIntensity: 0.4
         });
-        const topBarrier = new THREE.Mesh(topGeometry, topMaterial);
-        topBarrier.position.set(xPosition, gapY + gapSize / 2 + topHeight / 2, 0);
 
-        const bottomHeight = gapY + gapSize / 2 - this.groundY;
-        const bottomGeometry = new THREE.BoxGeometry(0.6, bottomHeight, 1.5);
-        const bottomMaterial = new THREE.MeshLambertMaterial({
-            map: barrierTexture,
-            emissive: 0xff6600,
-            emissiveIntensity: 0.6
-        });
-        const bottomBarrier = new THREE.Mesh(bottomGeometry, bottomMaterial);
-        bottomBarrier.position.set(xPosition, this.groundY + bottomHeight / 2, 0);
+        const asteroid = new THREE.Mesh(asteroidGeometry, asteroidMaterial);
+        asteroid.position.set(xPosition, yPosition, 0);
 
-        this.scene.add(topBarrier);
-        this.scene.add(bottomBarrier);
+        // Random rotation speeds for each asteroid
+        asteroid.userData.rotationSpeed = {
+            x: (Math.random() - 0.5) * 0.05,
+            y: (Math.random() - 0.5) * 0.05,
+            z: (Math.random() - 0.5) * 0.05
+        };
+        asteroid.userData.size = size;
 
-        this.barriers.push({
-            top: topBarrier,
-            bottom: bottomBarrier,
-            gapY,
-            gapSize
-        });
+        this.scene.add(asteroid);
+        this.barriers.push(asteroid); // Reusing barriers array for asteroids
     }
 
     createBackground() {
@@ -543,44 +535,35 @@ export default class FullMode {
 
     updateBarriers() {
         if (this.gameMode === 'plane') {
-            this.barriers.forEach(barrier => {
-                barrier.top.position.x -= this.gameSpeed;
-                barrier.bottom.position.x -= this.gameSpeed;
+            this.barriers.forEach(asteroid => {
+                // Move asteroid
+                asteroid.position.x -= this.gameSpeed;
 
+                // Rotate asteroid
+                asteroid.rotation.x += asteroid.userData.rotationSpeed.x;
+                asteroid.rotation.y += asteroid.userData.rotationSpeed.y;
+                asteroid.rotation.z += asteroid.userData.rotationSpeed.z;
+
+                // Pulse effect
                 const pulse = Math.sin(this.pulseTime * 2) * 0.2;
-                barrier.top.material.emissiveIntensity = 0.6 + pulse;
-                barrier.bottom.material.emissiveIntensity = 0.6 + pulse;
+                asteroid.material.emissiveIntensity = 0.4 + pulse;
 
-                if (barrier.top.position.x < -15) {
-                    const newX = 70;
-                    const newGapY = 0.2 + Math.random() * 1.0; // Higher, more centered gaps
-                    const newGapSize = 4.5 + Math.random() * 0.8; // Even bigger gaps
-
-                    barrier.top.position.x = newX;
-                    barrier.bottom.position.x = newX;
-                    barrier.gapY = newGapY;
-                    barrier.gapSize = newGapSize;
-
-                    const topHeight = newGapY - newGapSize / 2 + 2;
-                    const bottomHeight = newGapY + newGapSize / 2 - this.groundY;
-                    barrier.top.position.y = newGapY + newGapSize / 2 + topHeight / 2;
-                    barrier.bottom.position.y = this.groundY + bottomHeight / 2;
-
-                    barrier.top.geometry.dispose();
-                    barrier.bottom.geometry.dispose();
-                    barrier.top.geometry = new THREE.BoxGeometry(0.6, topHeight, 1.5);
-                    barrier.bottom.geometry = new THREE.BoxGeometry(0.6, bottomHeight, 1.5);
+                // Recycle asteroid
+                if (asteroid.position.x < -15) {
+                    asteroid.position.x = 60;
+                    asteroid.position.y = this.groundY + 1.5 + Math.random() * 2.5;
                 }
 
-                // More accurate collision detection
-                const distance = Math.abs(this.player.position.x - barrier.top.position.x);
-                if (distance < 0.5) { // Reduced from 0.8 - only check when very close
-                    const playerRadius = 0.35; // Reduced from 0.5 - tighter hitbox
-                    // Only collide if player center is outside the gap
-                    if (this.player.position.y + playerRadius > barrier.gapY + barrier.gapSize / 2 ||
-                        this.player.position.y - playerRadius < barrier.gapY - barrier.gapSize / 2) {
-                        this.gameOver();
-                    }
+                // Collision detection - simple sphere collision
+                const dx = this.player.position.x - asteroid.position.x;
+                const dy = this.player.position.y - asteroid.position.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                // Collision radius = asteroid size + small plane hitbox
+                const collisionDistance = asteroid.userData.size + 0.4;
+
+                if (distance < collisionDistance) {
+                    this.gameOver();
                 }
             });
         }
@@ -711,11 +694,11 @@ export default class FullMode {
         this.platforms.forEach(platform => this.scene.remove(platform));
         this.platforms = [];
 
-        for (let i = 0; i < 5; i++) {
-            const xPos = 10 + i * 12; // More spacing
-            const gapY = 0.2 + Math.random() * 1.0; // Higher, more centered gaps
-            const gapSize = 4.5 + Math.random() * 0.8; // Even bigger gaps
-            this.createBarrier(xPos, gapY, gapSize);
+        // Create scattered asteroids
+        for (let i = 0; i < 8; i++) {
+            const xPos = 10 + i * 8; // Spacing between asteroids
+            const yPos = this.groundY + 1.5 + Math.random() * 2.5; // Random height
+            this.createAsteroid(xPos, yPos);
         }
 
         for (let i = 0; i < 15; i++) {
@@ -740,9 +723,8 @@ export default class FullMode {
         this.verticalVelocity = 0;
         this.playerRotation = 0;
 
-        this.barriers.forEach(barrier => {
-            this.scene.remove(barrier.top);
-            this.scene.remove(barrier.bottom);
+        this.barriers.forEach(asteroid => {
+            this.scene.remove(asteroid);
         });
         this.barriers = [];
 
@@ -821,9 +803,8 @@ export default class FullMode {
     cleanup() {
         this.spikes.forEach(spike => this.scene.remove(spike));
         this.platforms.forEach(platform => this.scene.remove(platform));
-        this.barriers.forEach(barrier => {
-            this.scene.remove(barrier.top);
-            this.scene.remove(barrier.bottom);
+        this.barriers.forEach(asteroid => {
+            this.scene.remove(asteroid);
         });
         this.ground.forEach(piece => this.scene.remove(piece));
         this.backgroundCubes.forEach(cube => this.scene.remove(cube));
