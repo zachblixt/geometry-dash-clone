@@ -572,9 +572,11 @@ export default class FullMode {
                     barrier.bottom.geometry = new THREE.BoxGeometry(0.6, bottomHeight, 1.5);
                 }
 
+                // More accurate collision detection
                 const distance = Math.abs(this.player.position.x - barrier.top.position.x);
-                if (distance < 0.8) {
-                    const playerRadius = 0.5;
+                if (distance < 0.5) { // Reduced from 0.8 - only check when very close
+                    const playerRadius = 0.35; // Reduced from 0.5 - tighter hitbox
+                    // Only collide if player center is outside the gap
                     if (this.player.position.y + playerRadius > barrier.gapY + barrier.gapSize / 2 ||
                         this.player.position.y - playerRadius < barrier.gapY - barrier.gapSize / 2) {
                         this.gameOver();
