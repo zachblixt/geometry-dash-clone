@@ -35,11 +35,11 @@ export default class FullMode {
         this.portals = [];
 
         // Plane physics
-        this.planeGravity = 0.008;
-        this.planeThrustPower = 0.025;
-        this.planeMaxUpVelocity = 0.4;
-        this.planeMaxDownVelocity = 0.5;
-        this.planeDrag = 0.98;
+        this.planeGravity = 0.004; // Very light gravity for slow fall
+        this.planeThrustPower = 0.012; // Gentle thrust for slow climb
+        this.planeMaxUpVelocity = 0.25; // Slower max up speed
+        this.planeMaxDownVelocity = 0.25; // Slower max down speed
+        this.planeDrag = 0.96; // More air resistance for smoother control
     }
 
     init() {
